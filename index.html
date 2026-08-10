@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Atem – Tägliche Atemübungen</title>
+<meta name="description" content="Deine täglichen Atemübungen mit MP3s und Streak-Tracker">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Atem">
+<meta name="theme-color" content="#0f1b2d">
+<style>
+  :root {
+    --bg: #0f1b2d;
+    --bg-card: #182a42;
+    --bg-card-2: #1e3352;
+    --text: #eaf2fb;
+    --text-dim: #8fa6c0;
+    --accent: #4fd1c5;
+    --accent-soft: rgba(79, 209, 197, 0.15);
+    --flame: #ffb454;
+    --danger: #ff7a7a;
+    --radius: 18px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+    padding: env(safe-area-inset-top) 0 calc(env(safe-area-inset-bottom) + 120px) 0;
+    overscroll-behavior-y: none;
+  }
+  .wrap { max-width: 560px; margin: 0 auto; padding: 20px 18px; }
+
+  /* Header / Streak */
+  header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+  header h1 { font-size: 22px; font-weight: 700; letter-spacing: 0.3px; }
+  .streak-badge {
+    display: flex; align-items: center; gap: 7px;
+    background: var(--bg-card); border-radius: 999px; padding: 8px 15px;
+    font-weight: 700; font-size: 17px;
+  }
+  .streak-badge .flame { font-size: 20px; filter: grayscale(1) opacity(0.4); }
+  .streak-badge.active .flame { filter: none; animation: flicker 1.6s ease-in-out infinite; }
+  @keyframes flicker { 0%,100% { transform: scale(1) rotate(-2deg); } 50% { transform: scale(1.15) rotate(3deg); } }
+
+  /* Today card */
+  .today-card {
+    background: linear-gradient(145deg, var(--bg-card), var(--bg-card-2));
+    border-radius: var(--radius); padding: 22px; text-align: center; margin-bottom: 16px;
+    border: 1px solid rgba(255,255,255,0.05);
+  }
+  .today-card .date-label { color: var(--text-dim); font-size: 13px; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 10px; }
+  .breath-circle {
+    width: 130px; height: 130px; margin: 8px auto 14px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    background: radial-gradient(circle at 35% 30%, rgba(79,209,197,0.45), rgba(79,209,197,0.08) 70%);
+    border: 2px solid rgba(79,209,197,0.5);
+    font-size: 44px; transition: all 0.4s ease;
+  }
+  .breath-circle.breathing { animation: breathe 8s ease-in-out infinite; }
+  @keyframes breathe {
+    0%, 100% { transform: scale(0.82); box-shadow: 0 0 0 0 rgba(79,209,197,0.0); }
+    45%, 55% { transform: scale(1.08); box-shadow: 0 0 45px 6px rgba(79,209,197,0.35); }
+  }
+  .breath-circle.done { background: radial-gradient(circle at 35% 30%, rgba(79,209,197,0.75), rgba(79,209,197,0.2) 75%); border-color: var(--accent); }
+  .today-msg { font-size: 16px; color: var(--text-dim); margin-bottom: 16px; min-height: 22px; }
+  .today-msg strong { color: var(--text); }
+  .check-btn {
+    background: var(--accent); color: #06251f; font-weight: 700; font-size: 17px;
+    border: none; border-radius: 999px; padding: 14px 34px; cursor: pointer;
+    transition: transform 0.15s ease, opacity 0.2s;
+  }
+  .check-btn:active { transform: scale(0.96); }
+  .check-btn.checked { background: var(--accent-soft); color: var(--accent); }
+
+  /* Calendar */
+  .card {
+    background: var(--bg-card); border-radius: var(--radius); padding: 18px; margin-bottom: 16px;
+    border: 1px solid rgba(255,255,255,0.05);
+  }
+  .card h2 { font-size: 15px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px; color: var(--text-dim); margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center; }
+  .cal-nav { display: flex; gap: 4px; }
+  .cal-nav button { background: none; border: none; color: var(--accent); font-size: 18px; padding: 2px 10px; cursor: pointer; }
+  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; text-align: center; }
+  .cal-grid .dow { font-size: 11px; color: var(--text-dim); font-weight: 600; padding-bottom: 4px; }
+  .cal-day {
+    aspect-ratio: 1; display: flex; align-items: center; justify-content: center;
+    border-radius: 50%; font-size: 14px; color: var(--text-dim); position: relative;
+  }
+  .cal-day.done { background: var(--accent); color: #06251f; font-weight: 700; }
+  .cal-day.today { outline: 2px solid var(--flame); outline-offset: 1px; }
+  .cal-day.future { opacity: 0.3; }
+  .stats-row { display: flex; gap: 10px; margin-top: 14px; }
+  .stat { flex: 1; background: rgba(255,255,255,0.04); border-radius: 12px; padding: 10px; text-align: center; }
+  .stat .num { font-size: 20px; font-weight: 800; color: var(--accent); }
+  .stat .lbl { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+
+  /* Track list */
+  .track {
+    display: flex; align-items: center; gap: 12px; padding: 12px 4px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+  .track:last-child { border-bottom: none; }
+  .track .play-btn {
+    width: 44px; height: 44px; min-width: 44px; border-radius: 50%; border: none;
+    background: var(--accent-soft); color: var(--accent); font-size: 17px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .track.playing .play-btn { background: var(--accent); color: #06251f; }
+  .track .info { flex: 1; min-width: 0; }
+  .track .name { font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .track .meta { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+  .track .del-btn { background: none; border: none; color: var(--text-dim); font-size: 17px; padding: 8px; cursor: pointer; }
+  .empty-hint { color: var(--text-dim); font-size: 14px; text-align: center; padding: 18px 8px; line-height: 1.6; }
+  .upload-btn {
+    width: 100%; margin-top: 12px; padding: 14px; border-radius: 14px;
+    border: 2px dashed rgba(79,209,197,0.4); background: none; color: var(--accent);
+    font-size: 15px; font-weight: 600; cursor: pointer;
+  }
+
+  /* Player bar */
+  .player-bar {
+    position: fixed; left: 0; right: 0; bottom: 0;
+    background: rgba(24, 42, 66, 0.97); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    border-top: 1px solid rgba(255,255,255,0.08);
+    padding: 12px 18px calc(env(safe-area-inset-bottom) + 12px);
+    transform: translateY(110%); transition: transform 0.3s ease;
+  }
+  .player-bar.visible { transform: translateY(0); }
+  .player-inner { max-width: 560px; margin: 0 auto; }
+  .player-top { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+  .player-top .p-name { flex: 1; font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .player-top button { width: 40px; height: 40px; min-width: 40px; border-radius: 50%; border: none; background: var(--accent); color: #06251f; font-size: 15px; cursor: pointer; }
+  .player-top .close-p { background: none; color: var(--text-dim); font-size: 18px; width: 32px; min-width: 32px; }
+  .progress-wrap { display: flex; align-items: center; gap: 10px; font-size: 11px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+  .progress-bar { flex: 1; height: 5px; border-radius: 3px; background: rgba(255,255,255,0.1); overflow: hidden; }
+  .progress-fill { height: 100%; width: 0%; background: var(--accent); border-radius: 3px; }
+
+  .toast {
+    position: fixed; top: calc(env(safe-area-inset-top) + 14px); left: 50%; transform: translateX(-50%) translateY(-150%);
+    background: var(--accent); color: #06251f; font-weight: 700; font-size: 14px;
+    padding: 12px 22px; border-radius: 999px; transition: transform 0.35s ease; z-index: 50;
+    box-shadow: 0 6px 24px rgba(0,0,0,0.4); white-space: nowrap;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>🌬️ Atem</h1>
+    <div class="streak-badge" id="streakBadge"><span class="flame">🔥</span><span id="streakNum">0</span></div>
+  </header>
+
+  <section class="today-card">
+    <div class="date-label" id="dateLabel"></div>
+    <div class="breath-circle" id="breathCircle">🧘</div>
+    <div class="today-msg" id="todayMsg"></div>
+    <button class="check-btn" id="checkBtn">Heute abhaken ✓</button>
+  </section>
+
+  <section class="card">
+    <h2>
+      <span id="calTitle"></span>
+      <span class="cal-nav">
+        <button id="calPrev" aria-label="Vorheriger Monat">‹</button>
+        <button id="calNext" aria-label="Nächster Monat">›</button>
+      </span>
+    </h2>
+    <div class="cal-grid" id="calGrid"></div>
+    <div class="stats-row">
+      <div class="stat"><div class="num" id="statStreak">0</div><div class="lbl">Aktuelle Serie</div></div>
+      <div class="stat"><div class="num" id="statBest">0</div><div class="lbl">Beste Serie</div></div>
+      <div class="stat"><div class="num" id="statTotal">0</div><div class="lbl">Tage gesamt</div></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2><span>Meine Atemübungen</span></h2>
+    <div id="trackList"></div>
+    <div class="empty-hint" id="emptyHint" hidden>
+      Noch keine Übungen.<br>Lade deine MP3-Dateien hoch – sie werden lokal auf deinem iPhone gespeichert.
+    </div>
+    <button class="upload-btn" id="uploadBtn">＋ MP3-Dateien hinzufügen</button>
+    <input type="file" id="fileInput" accept="audio/*,.mp3,.m4a" multiple hidden>
+  </section>
+</div>
+
+<div class="player-bar" id="playerBar">
+  <div class="player-inner">
+    <div class="player-top">
+      <button id="ppBtn">▶</button>
+      <div class="p-name" id="pName"></div>
+      <button class="close-p" id="closePlayer">✕</button>
+    </div>
+    <div class="progress-wrap">
+      <span id="tCur">0:00</span>
+      <div class="progress-bar" id="progressBar"><div class="progress-fill" id="progressFill"></div></div>
+      <span id="tDur">0:00</span>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<audio id="audio"></audio>
+
+<script>
+'use strict';
+
+// ---------- IndexedDB ----------
+const DB_NAME = 'atem-app', DB_VER = 1;
+let db;
+
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VER);
+    req.onupgradeneeded = () => {
+      const d = req.result;
+      if (!d.objectStoreNames.contains('tracks')) d.createObjectStore('tracks', { keyPath: 'id', autoIncrement: true });
+      if (!d.objectStoreNames.contains('checkins')) d.createObjectStore('checkins', { keyPath: 'date' });
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+function tx(store, mode, fn) {
+  return new Promise((resolve, reject) => {
+    const t = db.transaction(store, mode);
+    const s = t.objectStore(store);
+    const out = fn(s);
+    t.oncomplete = () => resolve(out && out.result !== undefined ? out.result : undefined);
+    t.onerror = () => reject(t.error);
+  });
+}
+
+const getAll = (store) => new Promise((resolve, reject) => {
+  const req = db.transaction(store).objectStore(store).getAll();
+  req.onsuccess = () => resolve(req.result);
+  req.onerror = () => reject(req.error);
+});
+
+// ---------- Helpers ----------
+const $ = (id) => document.getElementById(id);
+const pad = (n) => String(n).padStart(2, '0');
+const dateKey = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const todayKey = () => dateKey(new Date());
+const fmtTime = (s) => isFinite(s) ? `${Math.floor(s / 60)}:${pad(Math.floor(s % 60))}` : '0:00';
+const MONTHS = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+const DOWS = ['Mo','Di','Mi','Do','Fr','Sa','So'];
+
+function showToast(msg) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._h);
+  t._h = setTimeout(() => t.classList.remove('show'), 2600);
+}
+
+// ---------- State ----------
+let checkins = new Set();
+let tracks = [];
+let calYear, calMonth;
+let currentTrackId = null;
+let currentUrl = null;
+const audio = $('audio');
+
+// ---------- Check-ins & Streak ----------
+function computeStreak() {
+  let streak = 0;
+  const d = new Date();
+  if (!checkins.has(dateKey(d))) d.setDate(d.getDate() - 1); // Serie zählt weiter, solange gestern erledigt war
+  while (checkins.has(dateKey(d))) { streak++; d.setDate(d.getDate() - 1); }
+  return streak;
+}
+
+function computeBest() {
+  const sorted = [...checkins].sort();
+  let best = 0, run = 0, prev = null;
+  for (const k of sorted) {
+    const cur = new Date(k + 'T12:00:00');
+    run = (prev && (cur - prev) === 86400000) ? run + 1 : 1;
+    best = Math.max(best, run);
+    prev = cur;
+  }
+  return best;
+}
+
+async function checkInToday(silent) {
+  const key = todayKey();
+  if (checkins.has(key)) return;
+  checkins.add(key);
+  await tx('checkins', 'readwrite', s => s.put({ date: key, ts: Date.now() }));
+  renderToday(); renderCalendar();
+  const streak = computeStreak();
+  if (!silent) showToast(streak > 1 ? `🔥 ${streak} Tage in Serie – stark!` : '✓ Geschafft für heute!');
+}
+
+// ---------- Rendering ----------
+function renderToday() {
+  const now = new Date();
+  $('dateLabel').textContent = now.toLocaleDateString('de-CH', { weekday: 'long', day: 'numeric', month: 'long' });
+  const done = checkins.has(todayKey());
+  const streak = computeStreak();
+  $('streakNum').textContent = streak;
+  $('streakBadge').classList.toggle('active', streak > 0 && done);
+  $('breathCircle').classList.toggle('done', done);
+  $('breathCircle').textContent = done ? '✅' : '🧘';
+  const btn = $('checkBtn');
+  btn.textContent = done ? 'Heute erledigt ✓' : 'Heute abhaken ✓';
+  btn.classList.toggle('checked', done);
+  $('todayMsg').innerHTML = done
+    ? 'Super! Deine Atemübung für heute ist <strong>erledigt</strong>. 🎉'
+    : 'Starte eine Übung – beim Anhören bis zum Ende wird der Tag <strong>automatisch abgehakt</strong>.';
+  $('statStreak').textContent = streak;
+  $('statBest').textContent = computeBest();
+  $('statTotal').textContent = checkins.size;
+}
+
+function renderCalendar() {
+  $('calTitle').textContent = `${MONTHS[calMonth]} ${calYear}`;
+  const grid = $('calGrid');
+  grid.innerHTML = '';
+  for (const d of DOWS) {
+    const el = document.createElement('div');
+    el.className = 'dow'; el.textContent = d;
+    grid.appendChild(el);
+  }
+  const first = new Date(calYear, calMonth, 1);
+  const offset = (first.getDay() + 6) % 7; // Montag = 0
+  const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+  const tKey = todayKey();
+  for (let i = 0; i < offset; i++) grid.appendChild(document.createElement('div'));
+  for (let day = 1; day <= daysInMonth; day++) {
+    const d = new Date(calYear, calMonth, day);
+    const key = dateKey(d);
+    const el = document.createElement('div');
+    el.className = 'cal-day';
+    el.textContent = day;
+    if (checkins.has(key)) { el.classList.add('done'); el.textContent = ''; el.append('✓'); }
+    if (key === tKey) el.classList.add('today');
+    if (d > new Date()) el.classList.add('future');
+    grid.appendChild(el);
+  }
+}
+
+function renderTracks() {
+  const list = $('trackList');
+  list.innerHTML = '';
+  $('emptyHint').hidden = tracks.length > 0;
+  for (const t of tracks) {
+    const row = document.createElement('div');
+    row.className = 'track' + (t.id === currentTrackId ? ' playing' : '');
+    row.dataset.id = t.id;
+
+    const play = document.createElement('button');
+    play.className = 'play-btn';
+    play.textContent = (t.id === currentTrackId && !audio.paused) ? '❚❚' : '▶';
+    play.addEventListener('click', () => togglePlay(t.id));
+
+    const info = document.createElement('div');
+    info.className = 'info';
+    const name = document.createElement('div');
+    name.className = 'name'; name.textContent = t.name;
+    const meta = document.createElement('div');
+    meta.className = 'meta';
+    meta.textContent = (t.size / 1024 / 1024).toFixed(1) + ' MB';
+    info.append(name, meta);
+
+    const del = document.createElement('button');
+    del.className = 'del-btn'; del.textContent = '🗑';
+    del.addEventListener('click', async () => {
+      if (!confirm(`„${t.name}" löschen?`)) return;
+      if (t.id === currentTrackId) stopPlayback();
+      await tx('tracks', 'readwrite', s => s.delete(t.id));
+      tracks = tracks.filter(x => x.id !== t.id);
+      renderTracks();
+    });
+
+    row.append(play, info, del);
+    list.appendChild(row);
+  }
+}
+
+// ---------- Playback ----------
+function togglePlay(id) {
+  if (id === currentTrackId) {
+    if (audio.paused) audio.play(); else audio.pause();
+    return;
+  }
+  const t = tracks.find(x => x.id === id);
+  if (!t) return;
+  if (currentUrl) URL.revokeObjectURL(currentUrl);
+  currentUrl = URL.createObjectURL(t.blob);
+  currentTrackId = id;
+  audio.src = currentUrl;
+  audio.play();
+  $('pName').textContent = t.name;
+  $('playerBar').classList.add('visible');
+  renderTracks();
+}
+
+function stopPlayback() {
+  audio.pause();
+  audio.removeAttribute('src');
+  audio.load();
+  if (currentUrl) { URL.revokeObjectURL(currentUrl); currentUrl = null; }
+  currentTrackId = null;
+  $('playerBar').classList.remove('visible');
+  $('breathCircle').classList.remove('breathing');
+  renderTracks();
+}
+
+audio.addEventListener('play', () => {
+  $('ppBtn').textContent = '❚❚';
+  $('breathCircle').classList.add('breathing');
+  renderTracks();
+});
+audio.addEventListener('pause', () => {
+  $('ppBtn').textContent = '▶';
+  $('breathCircle').classList.remove('breathing');
+  renderTracks();
+});
+audio.addEventListener('ended', async () => {
+  await checkInToday(false);
+  stopPlayback();
+});
+audio.addEventListener('timeupdate', () => {
+  $('tCur').textContent = fmtTime(audio.currentTime);
+  $('tDur').textContent = fmtTime(audio.duration);
+  if (isFinite(audio.duration) && audio.duration > 0) {
+    $('progressFill').style.width = (audio.currentTime / audio.duration * 100) + '%';
+  }
+});
+$('progressBar').addEventListener('click', (e) => {
+  if (!isFinite(audio.duration)) return;
+  const r = e.currentTarget.getBoundingClientRect();
+  audio.currentTime = ((e.clientX - r.left) / r.width) * audio.duration;
+});
+$('ppBtn').addEventListener('click', () => {
+  if (audio.paused) audio.play(); else audio.pause();
+});
+$('closePlayer').addEventListener('click', stopPlayback);
+
+// ---------- Upload ----------
+$('uploadBtn').addEventListener('click', () => $('fileInput').click());
+$('fileInput').addEventListener('change', async (e) => {
+  const files = [...e.target.files];
+  if (!files.length) return;
+  for (const f of files) {
+    const rec = { name: f.name.replace(/\.[^.]+$/, ''), size: f.size, type: f.type, blob: f, added: Date.now() };
+    const id = await new Promise((resolve, reject) => {
+      const req = db.transaction('tracks', 'readwrite').objectStore('tracks').add(rec);
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+    tracks.push({ ...rec, id });
+  }
+  e.target.value = '';
+  renderTracks();
+  showToast(`${files.length} Übung${files.length > 1 ? 'en' : ''} hinzugefügt ✓`);
+});
+
+// ---------- Check button & calendar nav ----------
+$('checkBtn').addEventListener('click', () => {
+  if (!checkins.has(todayKey())) checkInToday(false);
+});
+$('calPrev').addEventListener('click', () => {
+  calMonth--; if (calMonth < 0) { calMonth = 11; calYear--; }
+  renderCalendar();
+});
+$('calNext').addEventListener('click', () => {
+  calMonth++; if (calMonth > 11) { calMonth = 0; calYear++; }
+  renderCalendar();
+});
+
+// ---------- Init ----------
+(async function init() {
+  db = await openDB();
+  if (navigator.storage && navigator.storage.persist) navigator.storage.persist();
+  const now = new Date();
+  calYear = now.getFullYear(); calMonth = now.getMonth();
+  const [cks, trs] = await Promise.all([getAll('checkins'), getAll('tracks')]);
+  checkins = new Set(cks.map(c => c.date));
+  tracks = trs;
+  renderToday(); renderCalendar(); renderTracks();
+  // Bei Datumswechsel (App blieb offen) neu rendern
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) { renderToday(); renderCalendar(); }
+  });
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  }
+})();
+</script>
+</body>
+</html>
