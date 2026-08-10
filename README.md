@@ -12,7 +12,7 @@ Eine Web-App (PWA) fürs iPhone: Lade deine eigenen MP3-Atemübungen hoch, spiel
 
 ## Auf dem iPhone installieren
 
-1. **App online stellen** (einmalig): Auf GitHub unter **Settings → Pages → Branch: `main` (root)** aktivieren. Die App ist dann unter `https://<username>.github.io/Claude-mac-mini/` erreichbar.
+1. **App online stellen** (einmalig): Auf GitHub unter **Settings → Pages** bei „Deploy from a branch" den Standard-Branch mit Ordner `/ (root)` auswählen und speichern. Die App ist danach unter `https://<username>.github.io/Claude-mac-mini/` erreichbar.
 2. Diese URL auf dem iPhone in **Safari** öffnen.
 3. **Teilen-Symbol** (Quadrat mit Pfeil) → **„Zum Home-Bildschirm"** tippen.
 4. Die App erscheint mit eigenem Icon auf dem Home-Bildschirm und startet im Vollbild – wie eine echte App.
