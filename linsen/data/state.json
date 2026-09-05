@@ -1,0 +1,14 @@
+{
+  "wearDays": 14,
+  "eveningHour": 20,
+  "lastChanged": "2026-09-05",
+  "history": [],
+  "subscription": {
+    "endpoint": "https://web.push.apple.com/QF9ppZoEy3sk7o2I26e2DnFffGeH_bc3qcs8up-oldahu3Xiqv4_OzW5YkRrgDKjUjlwyXBkpevD2wTnLiPWjGF_E9kqQoPC0xDjAnuurj-J7aP_yFodamlXh7Q_gLZU-JBapK-VqAySfmGQ_O41JC5ZLt2opQ3tQG_C8ZrF2mg",
+    "keys": {
+      "p256dh": "BAbjZPjcx6shOhZENJAwMzEi3_N3lp8cQXToQAH_juYp0losBf1gvfHSweeiYEn1KcsXo-4JWCYb2Hl9wR-EJfQ",
+      "auth": "guYMCciGHc1QK_q6R8L97w"
+    }
+  },
+  "updatedAt": "2026-09-05T06:59:46.050Z"
+}
