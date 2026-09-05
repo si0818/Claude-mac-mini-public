@@ -1,0 +1,33 @@
+name: Linsen-Erinnerung
+
+on:
+  schedule:
+    # UTC-Zeiten, decken 06:00 und 20:00/21:00 Europe/Zurich in Sommer- und Winterzeit ab.
+    # Das Skript prüft die lokale Zürcher Stunde und sendet nur zur passenden Zeit.
+    - cron: '0 4,5,18,19,20 * * *'
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Push sofort senden (Test, ignoriert Uhrzeit und Fälligkeit)'
+        default: 'false'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: linsen-reminder
+  cancel-in-progress: false
+
+jobs:
+  remind:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install --no-save web-push@3.6.7
+      - run: node .github/scripts/linsen-reminder.js
+        env:
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+          FORCE: ${{ inputs.force }}

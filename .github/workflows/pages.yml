@@ -3,6 +3,8 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches: [claude/iphone-breathing-app-tracker-lq8x4r]
+    paths-ignore:
+      - 'linsen/data/**'
   workflow_dispatch:
 
 permissions:

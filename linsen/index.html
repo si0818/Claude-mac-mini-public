@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Linsen – Wechsel-Erinnerung</title>
+<meta name="description" content="Erinnert dich daran, deine Kontaktlinsen rechtzeitig zu wechseln">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Linsen">
+<meta name="theme-color" content="#0f1b2d">
+<style>
+  :root {
+    --bg: #0f1b2d;
+    --bg-card: #182a42;
+    --bg-card-2: #1e3352;
+    --text: #eaf2fb;
+    --text-dim: #8fa6c0;
+    --accent: #6fc3ff;
+    --accent-soft: rgba(111, 195, 255, 0.15);
+    --warn: #ffb454;
+    --danger: #ff7a7a;
+    --danger-soft: rgba(255, 122, 122, 0.15);
+    --ok: #4fd1c5;
+    --radius: 18px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+    padding: env(safe-area-inset-top) 0 calc(env(safe-area-inset-bottom) + 30px) 0;
+    overscroll-behavior-y: none;
+  }
+  .wrap { max-width: 560px; margin: 0 auto; padding: 20px 18px; }
+
+  header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+  header h1 { font-size: 22px; font-weight: 700; letter-spacing: 0.3px; }
+  .day-chip {
+    background: var(--bg-card); border-radius: 999px; padding: 8px 15px;
+    font-weight: 700; font-size: 15px; color: var(--accent);
+  }
+  .day-chip.overdue { color: var(--danger); }
+
+  .card {
+    background: var(--bg-card); border-radius: var(--radius); padding: 18px; margin-bottom: 16px;
+    border: 1px solid rgba(255,255,255,0.05);
+  }
+  .card h2 { font-size: 15px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px; color: var(--text-dim); margin-bottom: 14px; }
+
+  /* Status card */
+  .status-card {
+    background: linear-gradient(145deg, var(--bg-card), var(--bg-card-2));
+    border-radius: var(--radius); padding: 24px 22px; text-align: center; margin-bottom: 16px;
+    border: 1px solid rgba(255,255,255,0.05);
+  }
+  .status-card.overdue { border-color: rgba(255,122,122,0.4); }
+  .ring-box { position: relative; width: 190px; height: 190px; margin: 0 auto 16px; }
+  .ring-box svg { transform: rotate(-90deg); }
+  .ring-track { fill: none; stroke: rgba(255,255,255,0.08); stroke-width: 12; }
+  .ring-fill { fill: none; stroke: var(--accent); stroke-width: 12; stroke-linecap: round; transition: stroke-dashoffset 0.6s ease, stroke 0.4s; }
+  .ring-center {
+    position: absolute; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 2px;
+  }
+  .ring-center .big { font-size: 44px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+  .ring-center .sub { font-size: 13px; color: var(--text-dim); font-weight: 600; }
+  .status-msg { font-size: 15px; color: var(--text-dim); margin-bottom: 6px; min-height: 20px; }
+  .status-msg strong { color: var(--text); }
+  .status-msg.alert { color: var(--danger); font-weight: 700; animation: blink 2s ease-in-out infinite; }
+  @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0.55; } }
+  .dates-row { display: flex; gap: 10px; margin: 14px 0 18px; }
+  .date-box { flex: 1; background: rgba(255,255,255,0.04); border-radius: 12px; padding: 10px; }
+  .date-box .lbl { font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.8px; }
+  .date-box .val { font-size: 15px; font-weight: 700; margin-top: 3px; font-variant-numeric: tabular-nums; }
+  .swap-btn {
+    width: 100%; background: var(--accent); color: #06202f; font-weight: 700; font-size: 17px;
+    border: none; border-radius: 999px; padding: 15px; cursor: pointer;
+    transition: transform 0.15s ease;
+  }
+  .swap-btn:active { transform: scale(0.97); }
+  .swap-btn.urgent { background: var(--danger); color: #2b0808; animation: pulse-btn 1.8s ease-in-out infinite; }
+  @keyframes pulse-btn { 0%,100% { box-shadow: 0 0 0 0 rgba(255,122,122,0.5); } 50% { box-shadow: 0 0 0 12px rgba(255,122,122,0); } }
+  @media (prefers-reduced-motion: reduce) {
+    .swap-btn.urgent, .status-msg.alert { animation: none; }
+  }
+
+  /* Settings */
+  .setting-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 11px 0; border-bottom: 1px solid rgba(255,255,255,0.06); }
+  .setting-row:last-child { border-bottom: none; }
+  .setting-row .s-label { font-size: 15px; font-weight: 600; }
+  .setting-row .s-hint { font-size: 12px; color: var(--text-dim); margin-top: 2px; line-height: 1.45; }
+  .setting-row input[type="number"], .setting-row select {
+    background: rgba(255,255,255,0.07); color: var(--text); border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 10px; padding: 9px 12px; font-size: 16px; font-weight: 700; text-align: center;
+  }
+  .setting-row input[type="number"] { width: 76px; }
+  .setting-col { display: block; }
+  .setting-col .s-label { display: block; margin-bottom: 8px; }
+  .token-row { display: flex; gap: 8px; margin-top: 8px; }
+  .token-row input {
+    flex: 1; background: rgba(255,255,255,0.07); color: var(--text); border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 10px; padding: 10px 12px; font-size: 14px; min-width: 0;
+  }
+  .mini-btn {
+    background: var(--accent-soft); color: var(--accent); font-weight: 700; font-size: 14px;
+    border: none; border-radius: 10px; padding: 10px 16px; cursor: pointer; white-space: nowrap;
+  }
+  .mini-btn.full { width: 100%; margin-top: 8px; padding: 12px; }
+  .status-pill { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; padding: 5px 12px; border-radius: 999px; background: rgba(255,255,255,0.06); color: var(--text-dim); }
+  .status-pill.on { background: rgba(79,209,197,0.15); color: var(--ok); }
+  .status-pill.warn { background: rgba(255,180,84,0.15); color: var(--warn); }
+
+  /* History */
+  .hist-row { display: flex; justify-content: space-between; padding: 9px 2px; border-bottom: 1px solid rgba(255,255,255,0.06); font-size: 14px; }
+  .hist-row:last-child { border-bottom: none; }
+  .hist-row .h-date { font-weight: 600; }
+  .hist-row .h-worn { color: var(--text-dim); font-variant-numeric: tabular-nums; }
+  .empty-hint { color: var(--text-dim); font-size: 14px; text-align: center; padding: 12px 8px; line-height: 1.6; }
+
+  .toast {
+    position: fixed; top: calc(env(safe-area-inset-top) + 14px); left: 50%; transform: translateX(-50%) translateY(-150%);
+    background: var(--accent); color: #06202f; font-weight: 700; font-size: 14px;
+    padding: 12px 22px; border-radius: 999px; transition: transform 0.35s ease; z-index: 50;
+    box-shadow: 0 6px 24px rgba(0,0,0,0.4); white-space: nowrap; max-width: 92vw; overflow: hidden; text-overflow: ellipsis;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>👁️ Linsen</h1>
+    <div class="day-chip" id="dayChip">–</div>
+  </header>
+
+  <section class="status-card" id="statusCard">
+    <div class="ring-box">
+      <svg width="190" height="190" viewBox="0 0 190 190">
+        <circle class="ring-track" cx="95" cy="95" r="82"></circle>
+        <circle class="ring-fill" id="ringFill" cx="95" cy="95" r="82" stroke-dasharray="515.2" stroke-dashoffset="515.2"></circle>
+      </svg>
+      <div class="ring-center">
+        <div class="big" id="bigNum">–</div>
+        <div class="sub" id="bigSub"></div>
+      </div>
+    </div>
+    <div class="status-msg" id="statusMsg"></div>
+    <div class="dates-row">
+      <div class="date-box"><div class="lbl">Eingesetzt am</div><div class="val" id="dateIn">–</div></div>
+      <div class="date-box"><div class="lbl">Wechsel am</div><div class="val" id="dateDue">–</div></div>
+    </div>
+    <button class="swap-btn" id="swapBtn">Linsen gewechselt ✓</button>
+  </section>
+
+  <section class="card">
+    <h2>Erinnerungen</h2>
+    <div class="setting-row">
+      <div>
+        <div class="s-label">Push-Benachrichtigungen</div>
+        <div class="s-hint">Morgens 06:00 &amp; abends, bis du den Wechsel bestätigst</div>
+      </div>
+      <span class="status-pill" id="pushPill">aus</span>
+    </div>
+    <div class="setting-row">
+      <div class="s-label">Abend-Erinnerung</div>
+      <select id="eveningSel">
+        <option value="20">20:00</option>
+        <option value="21">21:00</option>
+      </select>
+    </div>
+    <button class="mini-btn full" id="pushBtn">🔔 Benachrichtigungen aktivieren</button>
+    <button class="mini-btn full" id="testBtn" hidden>📨 Test-Benachrichtigung senden</button>
+  </section>
+
+  <section class="card">
+    <h2>Einstellungen</h2>
+    <div class="setting-row">
+      <div>
+        <div class="s-label">Tragedauer</div>
+        <div class="s-hint">Tage pro Linsenpaar</div>
+      </div>
+      <input type="number" id="wearDaysInput" min="1" max="90" inputmode="numeric">
+    </div>
+    <div class="setting-row setting-col">
+      <div>
+        <div class="s-label">GitHub-Verbindung <span class="status-pill" id="syncPill">nicht verbunden</span></div>
+        <div class="s-hint">Nötig für Push: Die App speichert deinen Stand im Repository, damit der Erinnerungs-Dienst weiss, wann du gewechselt hast. Fine-grained Token mit Zugriff nur auf dieses Repo (Contents: Read/Write, Actions: Read/Write). Der Token bleibt nur auf diesem Gerät.</div>
+      </div>
+      <div class="token-row">
+        <input type="password" id="tokenInput" placeholder="github_pat_…" autocomplete="off">
+        <button class="mini-btn" id="tokenBtn">Verbinden</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Verlauf</h2>
+    <div id="histList"></div>
+    <div class="empty-hint" id="histEmpty">Noch keine Wechsel erfasst.</div>
+  </section>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+
+// ---------- Konfiguration ----------
+const REPO = 'si0818/Claude-mac-mini-public';
+const BRANCH = 'claude/iphone-breathing-app-tracker-lq8x4r';
+const STATE_PATH = 'linsen/data/state.json';
+const WORKFLOW_FILE = 'linsen-reminder.yml';
+const VAPID_PUBLIC_KEY = 'BGjFjIOz0iFOyZeKYBF2br7rwc3qxFuif2jmG-I6U8zR3FdB2z-2zc9QVP8SmIUDTraPcy0W_pnM5A1t7voqogg';
+const RING_CIRC = 2 * Math.PI * 82;
+
+// ---------- Helpers ----------
+const $ = (id) => document.getElementById(id);
+const pad = (n) => String(n).padStart(2, '0');
+const dateKey = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const fromKey = (k) => new Date(k + 'T12:00:00');
+const fmtDate = (k) => fromKey(k).toLocaleDateString('de-CH', { day: 'numeric', month: 'short', year: 'numeric' });
+
+function showToast(msg) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._h);
+  t._h = setTimeout(() => t.classList.remove('show'), 3200);
+}
+
+// ---------- State ----------
+let state = {
+  wearDays: 14,
+  eveningHour: 20,
+  lastChanged: dateKey(new Date()),
+  history: [],
+  subscription: null,
+  updatedAt: new Date(0).toISOString()
+};
+let remoteSha = null;
+let syncTimer = null;
+
+function loadLocal() {
+  try {
+    const raw = localStorage.getItem('linsen-state');
+    if (raw) state = { ...state, ...JSON.parse(raw) };
+  } catch (e) {}
+}
+function getToken() { try { return localStorage.getItem('linsen-token') || ''; } catch (e) { return ''; } }
+function setToken(t) { try { t ? localStorage.setItem('linsen-token', t) : localStorage.removeItem('linsen-token'); } catch (e) {} }
+
+function persist(pushRemote = true) {
+  state.updatedAt = new Date().toISOString();
+  try { localStorage.setItem('linsen-state', JSON.stringify(state)); } catch (e) {}
+  render();
+  if (pushRemote && getToken()) {
+    clearTimeout(syncTimer);
+    syncTimer = setTimeout(syncUp, 800);
+  }
+}
+
+// ---------- Berechnung ----------
+function daysWorn() {
+  const today = fromKey(dateKey(new Date()));
+  const start = fromKey(state.lastChanged);
+  return Math.max(0, Math.round((today - start) / 86400000));
+}
+function dueDateKey() {
+  const d = fromKey(state.lastChanged);
+  d.setDate(d.getDate() + Number(state.wearDays));
+  return dateKey(d);
+}
+
+// ---------- Rendering ----------
+function render() {
+  const worn = daysWorn();
+  const wearDays = Number(state.wearDays);
+  const remaining = wearDays - worn;
+  const overdue = remaining <= 0;
+  const frac = Math.min(worn / wearDays, 1);
+
+  $('dayChip').textContent = `Tag ${worn} / ${wearDays}`;
+  $('dayChip').classList.toggle('overdue', overdue);
+
+  const ring = $('ringFill');
+  ring.style.strokeDasharray = RING_CIRC;
+  ring.style.strokeDashoffset = RING_CIRC * (1 - frac);
+  const color = overdue ? 'var(--danger)' : (remaining <= 2 ? 'var(--warn)' : 'var(--accent)');
+  ring.style.stroke = color;
+
+  const big = $('bigNum'), sub = $('bigSub'), msg = $('statusMsg');
+  msg.classList.remove('alert');
+  if (overdue) {
+    const over = worn - wearDays;
+    big.textContent = '⚠️';
+    sub.textContent = over === 0 ? 'heute fällig' : `${over} Tag${over === 1 ? '' : 'e'} überfällig`;
+    msg.innerHTML = 'Bitte <strong>Linsen wechseln</strong> und unten bestätigen!';
+    msg.classList.add('alert');
+  } else {
+    big.textContent = remaining;
+    big.style.color = color;
+    sub.textContent = remaining === 1 ? 'Tag verbleibend' : 'Tage verbleibend';
+    msg.innerHTML = remaining <= 2
+      ? `Bald ist es so weit – Wechsel am <strong>${fmtDate(dueDateKey())}</strong>.`
+      : 'Alles im grünen Bereich. 👌';
+  }
+  if (!overdue) big.style.color = color; else big.style.color = '';
+
+  $('dateIn').textContent = fmtDate(state.lastChanged);
+  $('dateDue').textContent = fmtDate(dueDateKey());
+  $('swapBtn').classList.toggle('urgent', overdue);
+
+  $('wearDaysInput').value = wearDays;
+  $('eveningSel').value = String(state.eveningHour);
+
+  // Push-Status
+  const pill = $('pushPill');
+  const notifOk = typeof Notification !== 'undefined';
+  if (state.subscription && notifOk && Notification.permission === 'granted') {
+    pill.textContent = 'aktiv'; pill.className = 'status-pill on';
+    $('pushBtn').hidden = true;
+    $('testBtn').hidden = !getToken();
+  } else if (notifOk && Notification.permission === 'denied') {
+    pill.textContent = 'blockiert'; pill.className = 'status-pill warn';
+  } else {
+    pill.textContent = 'aus'; pill.className = 'status-pill';
+    $('pushBtn').hidden = false;
+  }
+
+  const syncPill = $('syncPill');
+  if (getToken()) { syncPill.textContent = 'verbunden'; syncPill.className = 'status-pill on'; }
+  else { syncPill.textContent = 'nicht verbunden'; syncPill.className = 'status-pill'; }
+
+  // Verlauf
+  const list = $('histList');
+  list.innerHTML = '';
+  const hist = [...(state.history || [])].reverse().slice(0, 15);
+  $('histEmpty').hidden = hist.length > 0;
+  for (const h of hist) {
+    const row = document.createElement('div');
+    row.className = 'hist-row';
+    const d = document.createElement('span');
+    d.className = 'h-date'; d.textContent = fmtDate(h.date);
+    const w = document.createElement('span');
+    w.className = 'h-worn'; w.textContent = `${h.worn} Tage getragen`;
+    row.append(d, w);
+    list.appendChild(row);
+  }
+
+  // App-Badge (iOS 16.4+)
+  if (navigator.setAppBadge) {
+    if (overdue) navigator.setAppBadge(Math.max(1, worn - wearDays)).catch(() => {});
+    else if (navigator.clearAppBadge) navigator.clearAppBadge().catch(() => {});
+  }
+}
+
+// ---------- GitHub-Sync ----------
+async function ghFetch(path, opts = {}) {
+  const headers = { 'Accept': 'application/vnd.github+json', ...(opts.headers || {}) };
+  const token = getToken();
+  if (token) headers['Authorization'] = 'Bearer ' + token;
+  return fetch('https://api.github.com' + path, { ...opts, headers });
+}
+
+async function syncDown() {
+  try {
+    const res = await ghFetch(`/repos/${REPO}/contents/${STATE_PATH}?ref=${encodeURIComponent(BRANCH)}&t=${Date.now()}`);
+    if (res.status === 404) { remoteSha = null; return; }
+    if (!res.ok) return;
+    const data = await res.json();
+    remoteSha = data.sha;
+    const remote = JSON.parse(decodeURIComponent(escape(atob(data.content.replace(/\n/g, '')))));
+    if (remote.updatedAt && remote.updatedAt > state.updatedAt) {
+      state = { ...state, ...remote };
+      try { localStorage.setItem('linsen-state', JSON.stringify(state)); } catch (e) {}
+      render();
+    }
+  } catch (e) {}
+}
+
+async function syncUp(retry = true) {
+  const token = getToken();
+  if (!token) return;
+  try {
+    const body = {
+      message: 'Linsen-App: Stand aktualisiert',
+      content: btoa(unescape(encodeURIComponent(JSON.stringify(state, null, 2)))),
+      branch: BRANCH
+    };
+    if (remoteSha) body.sha = remoteSha;
+    const res = await ghFetch(`/repos/${REPO}/contents/${STATE_PATH}`, {
+      method: 'PUT',
+      body: JSON.stringify(body)
+    });
+    if (res.ok) {
+      const data = await res.json();
+      remoteSha = data.content.sha;
+    } else if ((res.status === 409 || res.status === 422) && retry) {
+      await syncDown();
+      await syncUp(false);
+    } else if (res.status === 401 || res.status === 403) {
+      showToast('⚠️ GitHub-Token ungültig oder ohne Schreibrecht');
+    }
+  } catch (e) {}
+}
+
+// ---------- Push ----------
+function urlB64ToUint8(base64) {
+  const padding = '='.repeat((4 - base64.length % 4) % 4);
+  const raw = atob((base64 + padding).replace(/-/g, '+').replace(/_/g, '/'));
+  return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+}
+
+async function enablePush() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window) || typeof Notification === 'undefined') {
+    showToast('Push wird hier nicht unterstützt');
+    return;
+  }
+  const standalone = window.navigator.standalone === true || matchMedia('(display-mode: standalone)').matches;
+  if (!standalone) {
+    showToast('Zuerst „Zum Home-Bildschirm" hinzufügen, dann dort aktivieren');
+    return;
+  }
+  try {
+    const perm = await Notification.requestPermission();
+    if (perm !== 'granted') { render(); return; }
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlB64ToUint8(VAPID_PUBLIC_KEY)
+    });
+    state.subscription = sub.toJSON();
+    persist();
+    showToast('🔔 Benachrichtigungen aktiv');
+    if (!getToken()) showToast('Wichtig: noch GitHub-Token verbinden!');
+  } catch (e) {
+    showToast('Aktivierung fehlgeschlagen');
+  }
+}
+
+async function sendTestPush() {
+  const res = await ghFetch(`/repos/${REPO}/actions/workflows/${WORKFLOW_FILE}/dispatches`, {
+    method: 'POST',
+    body: JSON.stringify({ ref: BRANCH, inputs: { force: 'true' } })
+  });
+  if (res.status === 204) showToast('📨 Test gestartet – Push kommt in ~1 Min.');
+  else showToast('Test fehlgeschlagen (Token braucht Actions: Read/Write)');
+}
+
+// ---------- Events ----------
+$('swapBtn').addEventListener('click', () => {
+  if (!confirm('Linsenwechsel bestätigen? Der Zähler startet neu.')) return;
+  const worn = daysWorn();
+  state.history = [...(state.history || []), { date: dateKey(new Date()), worn }].slice(-30);
+  state.lastChanged = dateKey(new Date());
+  persist();
+  showToast('👁️ Frische Linsen – Zähler zurückgesetzt!');
+});
+
+$('wearDaysInput').addEventListener('change', (e) => {
+  const v = Math.max(1, Math.min(90, Number(e.target.value) || 14));
+  state.wearDays = v;
+  persist();
+});
+
+$('eveningSel').addEventListener('change', (e) => {
+  state.eveningHour = Number(e.target.value);
+  persist();
+  showToast(`Abend-Erinnerung: ${e.target.value}:00 Uhr`);
+});
+
+$('tokenBtn').addEventListener('click', async () => {
+  const t = $('tokenInput').value.trim();
+  if (!t) { setToken(''); render(); return; }
+  setToken(t);
+  const res = await ghFetch(`/repos/${REPO}`);
+  if (res.ok) {
+    $('tokenInput').value = '';
+    showToast('✓ Mit GitHub verbunden');
+    await syncDown();
+    await syncUp();
+    render();
+  } else {
+    setToken('');
+    showToast('Token ungültig – bitte prüfen');
+    render();
+  }
+});
+
+$('pushBtn').addEventListener('click', enablePush);
+$('testBtn').addEventListener('click', sendTestPush);
+
+// ---------- Init ----------
+(async function init() {
+  loadLocal();
+  render();
+  if (navigator.storage && navigator.storage.persist) navigator.storage.persist();
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  }
+  await syncDown();
+  // Falls Berechtigung schon erteilt: Subscription aktuell halten
+  if ('serviceWorker' in navigator && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      if (sub) {
+        const json = sub.toJSON();
+        if (JSON.stringify(json) !== JSON.stringify(state.subscription)) {
+          state.subscription = json;
+          persist();
+        }
+      }
+    } catch (e) {}
+  }
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) { render(); syncDown(); }
+  });
+})();
+</script>
+</body>
+</html>
